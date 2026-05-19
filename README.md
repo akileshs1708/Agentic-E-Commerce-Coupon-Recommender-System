@@ -1,10 +1,10 @@
-# 🎫 Agentic E-Commerce Coupon Recommender System
+#  Agentic E-Commerce Coupon Recommender System
 
 A production-style, self-learning coupon recommendation engine powered by a **Contextual Multi-Armed Bandit (Epsilon-Greedy)** AI agent. The system continuously improves its recommendations based on real-time user feedback.
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
                          ┌─────────────────────────────────────────┐
@@ -89,7 +89,7 @@ make seed
 
 ---
 
-## 📡 API Reference
+##  API Reference
 
 ### `POST /get-coupon`
 Get a personalized coupon recommendation for a user.
@@ -202,7 +202,7 @@ As the agent sees more interactions, it explores less and exploits its learned k
 
 ---
 
-## 🗄️ Database Schema
+##  Database Schema
 
 ```sql
 user_profiles     -- synthetic user demographics
@@ -214,7 +214,7 @@ metrics_snapshots -- periodic metric snapshots for trend analysis
 
 ---
 
-## 🧪 Testing
+##  Testing
 
 ### Integration Tests (requires running system)
 ```bash
@@ -237,7 +237,7 @@ make test-load
 
 ---
 
-## ⚙️ Configuration
+##  Configuration
 
 All agent hyperparameters are configurable via environment variables in `docker-compose.yml`:
 
@@ -253,7 +253,7 @@ All agent hyperparameters are configurable via environment variables in `docker-
 
 ---
 
-## 📊 Monitoring
+##  Monitoring
 
 ### Live Dashboard
 Open http://localhost:3000 for real-time visualization of:
@@ -285,7 +285,7 @@ docker-compose logs -f agent | grep -v "^$" | jq .
 
 ---
 
-## 🛠️ Development
+##  Development
 
 ### Hot-Reload Mode
 ```bash
@@ -311,7 +311,7 @@ curl -X POST "http://localhost:8000/generate-data?n_users=100"
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 coupon-recommender/
