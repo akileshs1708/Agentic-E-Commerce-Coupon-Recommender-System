@@ -1,0 +1,4 @@
+{"timestamp": "2026-04-06T21:04:36.956050+00:00", "service": "generator-service", "level": "INFO", "logger": "services.generator.main", "message": "Data generator service starting", "module": "main", "function": "startup", "line": 223}
+{"timestamp": "2026-04-06T21:04:36.956198+00:00", "service": "generator-service", "level": "INFO", "logger": "services.generator.main", "message": "Data generator service starting", "module": "main", "function": "startup", "line": 223}
+{"timestamp": "2026-04-06T21:04:36.975048+00:00", "service": "generator-service", "level": "INFO", "logger": "services.generator.main", "message": "Data generator service ready", "module": "main", "function": "startup", "line": 225}
+{"timestamp": "2026-04-06T21:04:36.975476+00:00", "service": "generator-service", "level": "INFO", "logger": "services.generator.main", "message": "Data generator service ready", "module": "main", "function": "startup", "line": 225}

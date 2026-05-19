@@ -1,0 +1,252 @@
+version: "3.9"
+
+# ─── Shared Environment ──────────────────────────────────────────────────────
+x-common-env: &common-env
+  DATABASE_URL: postgresql://coupon_user:coupon_pass@postgres:5432/coupon_db
+  REDIS_URL: redis://redis:6379/0
+  LOG_LEVEL: INFO
+  PYTHONPATH: /app
+
+x-common-depends: &common-depends
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+# ─── Services ─────────────────────────────────────────────────────────────────
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: coupon_postgres
+    environment:
+      POSTGRES_DB: coupon_db
+      POSTGRES_USER: coupon_user
+      POSTGRES_PASSWORD: coupon_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./logs:/app/logs
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coupon_user -d coupon_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - coupon_net
+
+  db-init:
+    build: 
+      context: .
+      dockerfile: services/generator/Dockerfile
+    command: python init_db.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - coupon_net
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: coupon_redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - coupon_net
+
+  # ── Agent Service (Decision Engine) ─────────────────────────────────────────
+  agent:
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    container_name: coupon_agent
+    environment:
+      <<: *common-env
+      SERVICE_NAME: agent-service
+      EPSILON_INITIAL: "0.3"
+      EPSILON_MIN: "0.05"
+      EPSILON_DECAY: "0.9995"
+      LEARNING_RATE: "0.1"
+      REWARD_CLICK: "1.0"
+      REWARD_PURCHASE: "5.0"
+      INIT_DB: "true" 
+    ports:
+      - "8001:8001"
+    <<: *common-depends
+    restart: unless-stopped
+    networks:
+      - coupon_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - ./logs:/app/logs
+
+  # ── Recommender Service ──────────────────────────────────────────────────────
+  recommender:
+    build:
+      context: .
+      dockerfile: services/recommender/Dockerfile
+    container_name: coupon_recommender
+    environment:
+      <<: *common-env
+      SERVICE_NAME: recommender-service
+      INIT_DB: "false" 
+    ports:
+      - "8002:8002"
+    <<: *common-depends
+    restart: unless-stopped
+    networks:
+      - coupon_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    volumes:
+      - ./logs:/app/logs
+
+  # ── Feedback Service ─────────────────────────────────────────────────────────
+  feedback:
+    build:
+      context: .
+      dockerfile: services/feedback/Dockerfile
+    container_name: coupon_feedback
+    environment:
+      <<: *common-env
+      SERVICE_NAME: feedback-service
+      INIT_DB: "false" 
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - coupon_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    volumes:
+      - ./logs:/app/logs
+
+  # ── Data Generator Service ───────────────────────────────────────────────────
+  generator:
+    build:
+      context: .
+      dockerfile: services/generator/Dockerfile
+    container_name: coupon_generator
+    environment:
+      <<: *common-env
+      SERVICE_NAME: generator-service
+      INIT_DB: "false" 
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      feedback:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - coupon_net
+    volumes:
+      - ./logs:/app/logs
+
+  # ── API Gateway ──────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    container_name: coupon_api
+    environment:
+      <<: *common-env
+      SERVICE_NAME: api-gateway
+      RECOMMENDER_URL: http://recommender:8002
+      AGENT_URL: http://agent:8001
+      FEEDBACK_URL: http://feedback:8003
+      GENERATOR_URL: http://generator:8004
+      INIT_DB: "false" 
+    ports:
+      - "8000:8000"
+    depends_on:
+      agent:
+        condition: service_healthy
+      recommender:
+        condition: service_healthy
+      feedback:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - coupon_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./logs:/app/logs
+
+  # ── Dashboard (Monitoring UI) ─────────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+    container_name: coupon_dashboard
+    environment:
+      API_URL: http://api:8000
+  
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - coupon_net
+    volumes:
+      - ./logs:/app/logs
+
+# ─── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  coupon_net:
+    driver: bridge
+    name: coupon_recommender_network
+
+

@@ -1,0 +1,41 @@
+version: "3.9"
+
+# Development overrides — adds volume mounts for hot-reload
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  api:
+    volumes:
+      - .:/app
+    environment:
+      LOG_LEVEL: DEBUG
+    command: ["python", "-m", "uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  agent:
+    volumes:
+      - .:/app
+    environment:
+      LOG_LEVEL: DEBUG
+      EPSILON_INITIAL: "0.5"   # higher exploration in dev
+    command: ["python", "-m", "uvicorn", "services.agent.main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+
+  recommender:
+    volumes:
+      - .:/app
+    environment:
+      LOG_LEVEL: DEBUG
+    command: ["python", "-m", "uvicorn", "services.recommender.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+
+  feedback:
+    volumes:
+      - .:/app
+    environment:
+      LOG_LEVEL: DEBUG
+    command: ["python", "-m", "uvicorn", "services.feedback.main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"]
+
+  generator:
+    volumes:
+      - .:/app
+    environment:
+      LOG_LEVEL: DEBUG
+    command: ["python", "-m", "uvicorn", "services.generator.main:app", "--host", "0.0.0.0", "--port", "8004", "--reload"]
